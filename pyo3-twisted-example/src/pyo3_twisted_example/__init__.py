@@ -14,7 +14,7 @@ class Reactor(IReactorCore, IReactorTime):
 
 reactor = cast(Reactor, _reactor)
 
-var = ContextVar("var")
+var: ContextVar[int] = ContextVar("var")
 
 async def task(n):
     print(f"before sleep {n}")

@@ -9,3 +9,5 @@ wheels/
 *.dll
 .venv
 target/
+.mypy_cache/
+.ruff_cache/
