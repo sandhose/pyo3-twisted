@@ -1,0 +1,25 @@
+[project]
+name = "pyo3-twisted-example"
+version = "0.1.0"
+authors = [{ name = "Quentin Gliech", email = "quenting@element.io" }]
+requires-python = ">=3.13"
+dependencies = ["Twisted>=22.10.0"]
+
+[project.scripts]
+pyo3-twisted-example = "pyo3_twisted_example:main"
+
+[tool.maturin]
+module-name = "pyo3_twisted._core"
+python-packages = ["pyo3_twisted"]
+python-source = "src"
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "src/**/*.rs" },
+]
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"

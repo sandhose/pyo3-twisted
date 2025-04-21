@@ -1,0 +1,18 @@
+[package]
+name = "pyo3-twisted"
+description = "An experimental bridge between Tokio and Twisted Deferreds"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tokio = { version = "1.44.2", features = ["rt-multi-thread", "sync"] }
+pyo3 = { version = "0.24.1" }
+# We need OnceCell::get_or_try_init, which isn't stable in std's OnceLock
+once_cell = "1.18.0"
