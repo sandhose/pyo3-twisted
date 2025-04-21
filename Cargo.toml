@@ -1,6 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["rust", "py-example"]
+members = ["pyo3-twisted", "pyo3-twisted-example"]
+
+[workspace.dependencies]
+pyo3 = { version = "0.24.1" }
+tokio = { version = "1.44.2" }
+once_cell = "1.18.0"
+pyo3-twisted = { path = "./pyo3-twisted" }
 
 [workspace.package]
 version = "0.1.0"

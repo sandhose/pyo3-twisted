@@ -1,24 +1,27 @@
-from pyo3_twisted_example._core import rusty_panic, rusty_sleep
-from typing import cast
-from contextvars import ContextVar
-from twisted.internet import reactor as _reactor
-from twisted.internet.interfaces import IReactorCore, IReactorTime
-from twisted.internet.defer import ensureDeferred
 import gc
+from contextvars import ContextVar
+from typing import cast
 
-class OurReactor(IReactorCore, IReactorTime):
+from twisted.internet import reactor as _reactor
+from twisted.internet.defer import ensureDeferred
+from twisted.internet.interfaces import IReactorCore, IReactorTime
+
+from pyo3_twisted_example._core import rusty_panic, rusty_sleep
+
+
+class Reactor(IReactorCore, IReactorTime):
     pass
 
-reactor = cast(OurReactor, _reactor)
+reactor = cast(Reactor, _reactor)
 
 var = ContextVar("var")
 
 async def task(n):
-    print("before sleep %s" % n)
-    var.set("hello %s" % n)
+    print(f"before sleep {n}")
+    var.set(n)
     await rusty_sleep(reactor, n)
-    print("after sleep %s" %n)
-    print(var.get())
+    print(f"after sleep {n}")
+    print(f"context var is {var.get()}")
     await rusty_panic(reactor)
 
 def def_task(n):

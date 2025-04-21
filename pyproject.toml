@@ -1,2 +1,2 @@
 [tool.uv.workspace]
-members = ["py-example"]
+members = ["pyo3-twisted-example"]

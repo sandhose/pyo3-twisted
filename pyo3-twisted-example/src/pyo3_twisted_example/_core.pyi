@@ -1,5 +1,5 @@
-from twisted.internet.interfaces import IReactorCore
 from twisted.internet.defer import Deferred
+from twisted.internet.interfaces import IReactorCore
 
 def rusty_sleep(reactor: IReactorCore, seconds: int) -> Deferred: ...
 def rusty_panic(reactor: IReactorCore) -> Deferred: ...

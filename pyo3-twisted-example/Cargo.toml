@@ -17,7 +17,6 @@ name = "_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-tokio = { version = "1.44.2", features = ["time"] }
-pyo3 = { version = "0.24.1", features = ["extension-module", "abi3-py39"] }
-
-pyo3-twisted = { path = "../rust" }
+pyo3 = { workspace = true, features = ["extension-module", "abi3-py39"] }
+pyo3-twisted.workspace = true
+tokio = { workspace = true, features = ["time"] }

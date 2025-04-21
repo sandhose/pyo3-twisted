@@ -12,7 +12,7 @@ readme.workspace = true
 workspace = true
 
 [dependencies]
-tokio = { version = "1.44.2", features = ["rt-multi-thread", "sync"] }
-pyo3 = { version = "0.24.1" }
 # We need OnceCell::get_or_try_init, which isn't stable in std's OnceLock
-once_cell = "1.18.0"
+once_cell.workspace = true
+pyo3.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
