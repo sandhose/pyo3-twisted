@@ -14,8 +14,8 @@ static DEFER: OnceCell<PyObject> = OnceCell::new();
 static CONTEXTVARS: OnceCell<PyObject> = OnceCell::new();
 
 create_exception!(
-    pyo3_twisted._core,
-    RustPanic,
+    pyo3_twisted,
+    RustPanicError,
     PyException,
     "A panic which happened in a Rust future"
 );
@@ -184,7 +184,7 @@ where
         Err(panic_) => {
             let message = get_panic_message(&*panic_);
             let message = format!("rust function panicked: {message}");
-            let result = Err(RustPanic::new_err(message));
+            let result = Err(RustPanicError::new_err(message));
 
             if let Err(e) = set_result(&reactor, &context, &bound_deferred, result) {
                 e.print_and_set_sys_last_vars(py);
@@ -229,7 +229,7 @@ where
                         Ok(panic_) => {
                             let message = get_panic_message(&*panic_);
                             let message = format!("rust future panicked: {message}");
-                            Err(RustPanic::new_err(message))
+                            Err(RustPanicError::new_err(message))
                         }
 
                         Err(e) => {
