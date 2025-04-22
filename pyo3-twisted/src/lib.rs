@@ -12,8 +12,6 @@ use tokio::sync::oneshot::Sender;
 static DEFER: OnceCell<PyObject> = OnceCell::new();
 /// A reference to the `contextvars` module.
 static CONTEXTVARS: OnceCell<PyObject> = OnceCell::new();
-/// A lazy-initialized [`tokio::runtime::Runtime`].
-static RUNTIME: OnceCell<tokio::runtime::Runtime> = OnceCell::new();
 
 create_exception!(
     pyo3_twisted._core,
@@ -29,13 +27,50 @@ fn defer(py: Python) -> PyResult<&Bound<PyAny>> {
         .bind(py))
 }
 
-/// Get a reference to a lazy-initialized [`tokio::runtime::Runtime`].
-fn runtime() -> PyResult<&'static tokio::runtime::Runtime> {
-    Ok(RUNTIME.get_or_try_init(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-    })?)
+/// Stores a Tokio runtime, which we store on the reactor instance.
+///
+/// It stops the Tokio runtime when dropped.
+#[pyclass]
+struct Runtime {
+    runtime: tokio::runtime::Runtime,
+}
+
+impl Runtime {
+    fn handle(&self) -> &tokio::runtime::Handle {
+        self.runtime.handle()
+    }
+}
+
+/// Get the existing Tokio runtime handle stored on the reactor instance, or
+/// create a new one.
+fn runtime<'a>(reactor: &Bound<'a, PyAny>) -> PyResult<PyRef<'a, Runtime>> {
+    if !reactor.hasattr("__pyo3_twisted_tokio_runtime")? {
+        install_runtime(reactor)?;
+    }
+
+    get_runtime(reactor)
+}
+
+/// Install a new Tokio runtime on the reactor instance.
+fn install_runtime(reactor: &Bound<PyAny>) -> PyResult<()> {
+    // TODO: we shoud allow customizing the Tokio runtime
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+
+    let runtime = Runtime { runtime };
+    reactor.setattr("__pyo3_twisted_tokio_runtime", runtime)?;
+
+    Ok(())
+}
+
+/// Get a reference to a Tokio runtime handle stored on the reactor instance.
+fn get_runtime<'a>(reactor: &Bound<'a, PyAny>) -> PyResult<PyRef<'a, Runtime>> {
+    // This will raise if `__pyo3_twisted_tokio_runtime` is not set or if it is
+    // not a `Runtime`. Careful that this could happen if the user sets it
+    // manually, or if multiple versions of `pyo3-twisted` are used!
+    let runtime: Bound<Runtime> = reactor.getattr("__pyo3_twisted_tokio_runtime")?.extract()?;
+    Ok(runtime.borrow())
 }
 
 /// Access to the `contextvars` module.
@@ -124,9 +159,13 @@ where
     Fut: Future<Output = PyResult<T>> + Send + 'static,
     T: for<'py> IntoPyObject<'py> + Send + 'static,
 {
+    // Get a reference to the runtime
+    let rt = runtime(&reactor)?;
+    let rt = rt.handle();
+
     // Enter the runtime context, in case `tokio::spawn` or other are used during
     // the future creation
-    let _guard = runtime()?.enter();
+    let _guard = rt.enter();
     let py = reactor.py();
 
     // Copy the current context.
@@ -154,9 +193,6 @@ where
             return Ok(bound_deferred);
         }
     };
-
-    // Get a reference to the runtime
-    let rt = runtime()?;
 
     // Spawn the future
     let handle = rt.spawn(future);

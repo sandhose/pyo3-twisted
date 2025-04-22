@@ -7,7 +7,12 @@ from twisted.internet import reactor as _reactor
 from twisted.internet.defer import ensureDeferred
 from twisted.internet.interfaces import IReactorCore, IReactorTime
 
-from pyo3_twisted_example._core import rusty_early_panic, rusty_panic, rusty_sleep, RustPanic
+from pyo3_twisted_example._core import (
+    rusty_early_panic,
+    rusty_panic,
+    rusty_sleep,
+    RustPanic,
+)
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -28,6 +33,7 @@ async def task(n):
     logger.info(f"after sleep {n}")
     logger.info(f"context var is {var.get()}")
 
+
 async def panic():
     logger.info("before panic")
     try:
@@ -35,6 +41,7 @@ async def panic():
     except RustPanic:
         logger.exception("caught rust panic")
     logger.info("after panic")
+
 
 async def early_panic():
     logger.info("before early panic")
@@ -55,7 +62,7 @@ def gc_now():
 
 def main():
     reactor.callWhenRunning(def_task, 1)
-    reactor.callWhenRunning(def_task, 2) # This task will timeout
+    reactor.callWhenRunning(def_task, 2)  # This task will timeout
     reactor.callWhenRunning(lambda: ensureDeferred(panic()))
     reactor.callWhenRunning(lambda: ensureDeferred(early_panic()))
     # GC after 2 seconds, so that we see the deferred errors
