@@ -1,3 +1,5 @@
+use std::panic::UnwindSafe;
+
 use once_cell::sync::OnceCell;
 use pyo3::IntoPyObjectExt;
 use pyo3::create_exception;
@@ -118,7 +120,7 @@ fn set_result(
 ///  - `twisted.internet.defer.Deferred()` failed
 pub fn async_fn_into_py<F, Fut, T>(reactor: Bound<PyAny>, f: F) -> PyResult<Bound<PyAny>>
 where
-    F: FnOnce() -> Fut + Ungil,
+    F: FnOnce() -> Fut + Ungil + UnwindSafe,
     Fut: Future<Output = PyResult<T>> + Send + 'static,
     T: for<'py> IntoPyObject<'py> + Send + 'static,
 {
@@ -126,24 +128,6 @@ where
     // the future creation
     let _guard = runtime()?.enter();
     let py = reactor.py();
-
-    // Create the future, releasing the GIL during that operation
-    // TODO: we should catch panics here, and return a Twisted failure
-    let future = py.allow_threads(f);
-
-    // Transform the Future into a Deferred
-    future_into_py(reactor, future)
-}
-
-fn future_into_py<F, T>(reactor: Bound<PyAny>, fut: F) -> PyResult<Bound<PyAny>>
-where
-    F: Future<Output = PyResult<T>> + Send + 'static,
-    T: for<'py> IntoPyObject<'py> + Send + 'static,
-{
-    let py = reactor.py();
-
-    // Get a reference to the runtime
-    let rt = runtime()?;
 
     // Copy the current context.
     let context = contextvars(py)?.call_method0("copy_context")?;
@@ -153,8 +137,29 @@ where
     let (tx, rx) = tokio::sync::oneshot::channel();
     let bound_deferred = defer(py)?.call_method1("Deferred", (PyCancelTx { tx: Some(tx) },))?;
 
+    // Create the future, releasing the GIL during that operation.
+    // We also catch panics during the future creation
+    let result = std::panic::catch_unwind(|| py.allow_threads(f));
+    let future = match result {
+        Ok(future) => future,
+        Err(panic_) => {
+            let message = get_panic_message(&*panic_);
+            let message = format!("rust function panicked: {message}");
+            let result = Err(RustPanic::new_err(message));
+
+            if let Err(e) = set_result(&reactor, &context, &bound_deferred, result) {
+                e.print_and_set_sys_last_vars(py);
+            }
+
+            return Ok(bound_deferred);
+        }
+    };
+
+    // Get a reference to the runtime
+    let rt = runtime()?;
+
     // Spawn the future
-    let handle = rt.spawn(fut);
+    let handle = rt.spawn(future);
 
     // Spawn a task that will fire when the future is cancelled.
     let abort_handle = handle.abort_handle();
@@ -186,15 +191,7 @@ where
                 Err(err) => {
                     match err.try_into_panic() {
                         Ok(panic_) => {
-                            // Apparently this is how you extract the panic message from a panic
-                            let message = if let Some(str_slice) = panic_.downcast_ref::<&str>() {
-                                str_slice
-                            } else if let Some(string) = panic_.downcast_ref::<String>() {
-                                string
-                            } else {
-                                "unknown error"
-                            };
-
+                            let message = get_panic_message(&*panic_);
                             let message = format!("rust future panicked: {message}");
                             Err(RustPanic::new_err(message))
                         }
@@ -220,4 +217,15 @@ where
     });
 
     Ok(bound_deferred)
+}
+
+fn get_panic_message<'a>(panic_: &'a (dyn std::any::Any + Send + 'static)) -> &'a str {
+    // Apparently this is how you extract the panic message from a panic
+    if let Some(str_slice) = panic_.downcast_ref::<&str>() {
+        str_slice
+    } else if let Some(string) = panic_.downcast_ref::<String>() {
+        string
+    } else {
+        "unknown error"
+    }
 }

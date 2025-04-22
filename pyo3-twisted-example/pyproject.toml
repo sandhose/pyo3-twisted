@@ -15,12 +15,16 @@ dev = ["ruff", "mypy"]
 select = ["E", "F", "I", "B", "UP", "N", "PL", "RUF"]
 
 [tool.maturin]
-module-name = "pyo3_twisted._core"
-python-packages = ["pyo3_twisted"]
+module-name = "pyo3_twisted_example._core"
+python-packages = ["pyo3_twisted_example"]
 python-source = "src"
 
 [tool.uv]
-cache-keys = [{ file = "Cargo.toml" }, { file = "src/**/*.rs" }]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "src/**/*.rs" },
+]
 
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
